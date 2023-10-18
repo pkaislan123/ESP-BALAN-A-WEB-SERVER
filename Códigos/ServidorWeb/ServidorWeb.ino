@@ -3,8 +3,8 @@
 #include <WiFiClient.h>
 
 // Informações da rede Wi-Fi
-const char* ssid = "Aislan";
-const char* password = "14111995";
+const char* ssid = "Sua rede wifi";
+const char* password = "Senha da rede wifi";
 
 // Configuração do servidor web
 ESP8266WebServer server(80);
