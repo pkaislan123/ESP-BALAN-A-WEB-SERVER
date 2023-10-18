@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cliente Pesagem Dinâmica</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+
+        #titulo1 {
+            font-size: 22px;
+            font-weight: bold;
+            padding-bottom: 100px;
+        }
+
+        #divPeso {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #d3e0f1;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        #tabela {
+            width: 60%;
+            margin: 0 auto;
+            margin-top: 30px;
+            border-collapse: collapse;
+        }
+
+        #tabela th,
+        #tabela td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        #tabela th {
+            background-color: #f2f2f2;
+        }
+
+        #formNovoDado {
+            width: 60%;
+            margin: 0 auto;
+            margin-top: 30px;
+        }
+
+        #formNovoDado input {
+            margin-bottom: 10px;
+            padding: 5px;
+        }
+
+        #formNovoDado button {
+            padding: 5px 10px;
+        }
+
+        /* Estilos do modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="titulo1">Exemplo de Cliente Pesagem Dinâmica</div>
+
+    <div id="divPeso">
+        <div>
+            <span>Atualizando peso em tempo real:</span>
+            <span id="pesoAtual">Carregando...</span> gramas
+        </div>
+    </div>
+
+    <table id="tabela">
+        <thead>
+            <tr>
+                <th>Descrição do Produto</th>
+                <th>Peso do Produto</th>
+            </tr>
+        </thead>
+        <tbody id="tabelaCorpo">
+            <!-- Dados da tabela serão adicionados aqui via JavaScript -->
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="2">Peso Total na Balança: <span id="pesoTotal"></span> gramas</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <form id="formNovoDado">
+        <input type="text" placeholder="Descrição do Produto" id="descricao">
+        <input type="number" placeholder="Peso do Produto (gramas)" id="peso">
+        <button type="button" onclick="adicionarDado()">OK</button>
+    </form>
+
+    <!-- Modal para selecionar item afetado por decréscimo ou acrescimo de peso -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="fecharModal()">&times;</span>
+            <h2 id="modalTitulo"></h2>
+            <select id="selectItemAfetado">
+                <!-- Opções serão adicionadas aqui via JavaScript -->
+            </select>
+            <input type="text" id="inputDescricao" placeholder="Nova Descrição">
+            <button onclick="confirmarDecrescimo()">Confirmar Decréscimo</button>
+            <button onclick="confirmarAcrescimo()">Confirmar Acrescimo</button>
+            <button onclick="criarNovoItem()">Criar Novo Item</button>
+        </div>
+    </div>
+
+    <script>
+        let pesoAtualGlobal = 0;
+        let diferencaGlobal = 0;
+        let tabelaDados = [];
+
+        function atualizarPeso() {
+            fetch('http://localhost:9080/peso')
+                .then(response => response.json())
+                .then(data => {
+                    const novoPeso = data.pesoAtual;
+
+ document.getElementById('pesoAtual').innerText = formatarPeso(novoPeso);
+                    
+
+                    if (novoPeso !== pesoAtualGlobal) {
+                        diferencaGlobal = novoPeso - pesoAtualGlobal;
+                        pesoAtualGlobal = novoPeso;
+                        document.getElementById('pesoAtual').innerText = formatarPeso(pesoAtualGlobal);
+                        document.getElementById('pesoTotal').innerText = formatarPeso(pesoAtualGlobal);
+
+                        if (diferencaGlobal !== 0) {
+                            pausarAtualizacao();
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao obter o peso atual:', error);
+                    document.getElementById('pesoAtual').innerText = 'Erro';
+                });
+        }
+
+        function formatarPeso(peso) {
+            return peso.toFixed(0).replace('.', ',') + ' gramas';
+        }
+
+        setInterval(atualizarPeso, 100);
+
+        function pausarAtualizacao() {
+            const modal = document.getElementById('modal');
+            const modalTitulo = document.getElementById('modalTitulo');
+            const selectItemAfetado = document.getElementById('selectItemAfetado');
+            const inputDescricao = document.getElementById('inputDescricao');
+
+            tabelaDados.forEach((item, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.text = item.descricao_produto;
+                selectItemAfetado.appendChild(option);
+            });
+
+            if (diferencaGlobal < 0) {
+                modalTitulo.innerText = `Selecione o item afetado pelo decréscimo de ${formatarPeso(-diferencaGlobal)}`;
+                inputDescricao.style.display = 'none';
+                document.querySelector('button[onclick="confirmarAcrescimo()"]').style.display = 'none';
+                document.querySelector('button[onclick="criarNovoItem()"]').style.display = 'none';
+                document.querySelector('button[onclick="confirmarDecrescimo()"]').style.display = 'block';
+            } else {
+                modalTitulo.innerText = `Selecione o item afetado pelo acréscimo de ${formatarPeso(diferencaGlobal)}`;
+                inputDescricao.style.display = 'block';
+                document.querySelector('button[onclick="confirmarAcrescimo()"]').style.display = 'block';
+                document.querySelector('button[onclick="criarNovoItem()"]').style.display = 'block';
+                document.querySelector('button[onclick="confirmarDecrescimo()"]').style.display = 'none';
+            }
+
+            modal.style.display = 'block';
+        }
+
+        function fecharModal() {
+            const modal = document.getElementById('modal');
+            const selectItemAfetado = document.getElementById('selectItemAfetado');
+            const inputDescricao = document.getElementById('inputDescricao');
+
+            modal.style.display = 'none';
+            selectItemAfetado.innerHTML = '';
+            inputDescricao.value = '';
+            diferencaGlobal = 0;
+        }
+
+        function adicionarDado() {
+            const descricao = document.getElementById('descricao').value;
+            const peso = parseFloat(document.getElementById('peso').value);
+            const tabelaCorpo = document.getElementById('tabelaCorpo');
+
+            const newRow = tabelaCorpo.insertRow();
+            const cell1 = newRow.insertCell(0);
+            const cell2 = newRow.insertCell(1);
+
+            cell1.innerHTML = descricao;
+            cell2.innerHTML = formatarPeso(peso);
+
+            tabelaDados.push({ descricao_produto: descricao, peso_produto: peso });
+
+            document.getElementById('descricao').value = '';
+            document.getElementById('peso').value = '';
+
+            atualizarPesoTotal();
+        }
+
+        function confirmarDecrescimo() {
+            const modal = document.getElementById('modal');
+            const selectItemAfetado = document.getElementById('selectItemAfetado');
+            const indexSelecionado = parseInt(selectItemAfetado.value);
+
+            tabelaDados[indexSelecionado].peso_produto = tabelaDados[indexSelecionado].peso_produto + diferencaGlobal;
+
+            const tabelaCorpo = document.getElementById('tabelaCorpo');
+            tabelaCorpo.innerHTML = '';
+
+            tabelaDados.forEach(item => {
+                const newRow = tabelaCorpo.insertRow();
+                const cell1 = newRow.insertCell(0);
+                const cell2 = newRow.insertCell(1);
+
+                cell1.innerHTML = item.descricao_produto;
+                cell2.innerHTML = formatarPeso(item.peso_produto);
+            });
+
+            fecharModal();
+        }
+
+        function confirmarAcrescimo() {
+            const modal = document.getElementById('modal');
+            const selectItemAfetado = document.getElementById('selectItemAfetado');
+            const inputDescricao = document.getElementById('inputDescricao');
+            const indexSelecionado = parseInt(selectItemAfetado.value);
+            const acrescimo = parseFloat(diferencaGlobal);
+
+            if (isNaN(indexSelecionado)) {
+                const descricao = inputDescricao.value.trim();
+
+                if (descricao.length === 0) {
+                    alert('Digite uma descrição válida para o novo item.');
+                    return;
+                }
+
+                tabelaDados.push({ descricao_produto: descricao, peso_produto: acrescimo });
+            } else {
+                tabelaDados[indexSelecionado].peso_produto += acrescimo;
+            }
+
+            const tabelaCorpo = document.getElementById('tabelaCorpo');
+            tabelaCorpo.innerHTML = '';
+
+            tabelaDados.forEach(item => {
+                const newRow = tabelaCorpo.insertRow();
+                const cell1 = newRow.insertCell(0);
+                const cell2 = newRow.insertCell(1);
+
+                cell1.innerHTML = item.descricao_produto;
+                cell2.innerHTML = formatarPeso(item.peso_produto);
+            });
+
+            fecharModal();
+        }
+
+        function criarNovoItem() {
+            const descricao = document.getElementById('inputDescricao').value;
+            const peso = parseFloat(document.getElementById('peso').value);
+            const tabelaCorpo = document.getElementById('tabelaCorpo');
+
+            const newRow = tabelaCorpo.insertRow();
+            const cell1 = newRow.insertCell(0);
+            const cell2 = newRow.insertCell(1);
+
+            cell1.innerHTML = descricao;
+            cell2.innerHTML = formatarPeso(diferencaGlobal);
+
+            tabelaDados.push({ descricao_produto: descricao, peso_produto: diferencaGlobal });
+
+            document.getElementById('descricao').value = '';
+            document.getElementById('peso').value = '';
+
+            fecharModal();
+            atualizarPesoTotal();
+        }
+
+        function atualizarPesoTotal() {
+            let pesoTotal = 0;
+            tabelaDados.forEach(item => {
+                pesoTotal += item.peso_produto;
+            });
+            document.getElementById('pesoTotal').innerText = formatarPeso(pesoTotal);
+        }
+    </script>
+</body>
+
+</html>

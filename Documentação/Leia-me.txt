@@ -1,0 +1,3 @@
+Para montar o Sistema de Pesagem Dinamica, siga a documentação proposta nos arquivos desta pasta, começando por "1) Teoria Inicial" e seguindo a ordem númerica.
+
+
